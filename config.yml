@@ -1,0 +1,9 @@
+---
+    environment: production
+    address: 0.0.0.0
+    port: 6874
+    rackup: config.ru
+    max_conns: 10
+    timeout: 300
+    max_persistent_conns: 7
+    daemonize: true

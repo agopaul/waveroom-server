@@ -1,0 +1,11 @@
+Waveroom Server
+
+an alternative waveroom server
+
+Built to stream my music library to the Waveroom Blackberry Application (http://www.waveroomapp.com/) from my home linux box
+
+requires Sinatra/Ruby. thin is my webserver of choice, not yet tested with mongrel or unicorn
+
+TODO:
+	- track seeking
+	- shuffle functionality
