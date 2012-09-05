@@ -1,36 +1,16 @@
 require 'rubygems'
 require 'sinatra'
+require 'sinatra/streaming'
 require 'json'
 require 'yaml'
 
-@folders = ["/data/Music", "/data/rtorrent/downloading/whatcd/"]
-
-class Mp3Stream
-	
-	def initialize(filename, start_pos)
-		@filename, @start_pos = filename, start_pos
-
-		@file = File.new(filename, "rb")
-		@file.seek(start_pos)
-		@chuck_size = 4*1024
-	end
-
-	def each		
-		begin chunk = @file.read(@chuck_size)
-			yield chunk
-		end while chunk.size == @chuck_size
-	end
-
-	def length
-		File.size(@filename) - @start_pos
-	end
-
-end
-
 class WaveRoom < Sinatra::Base
+
+	helpers Sinatra::Streaming
 
 	configure do
 		mime_type :json, 'application/json'
+		mime_type :mp3, 'audio/mpeg'
 		set :logging, true
 	end
 
@@ -100,15 +80,45 @@ class WaveRoom < Sinatra::Base
 
 	get	%r{/file/([\d]+)/(.+)} do |id, file|
 
+		content_type :mp3
+
 		start = 0 # unless not params[:start].nil?
 
-		mp3 = Mp3Stream.new(@folders[id.to_i]+"/"+file, start.to_i)
-		size = mp3.length.to_s
+		filepath = @folders[id.to_i]+"/"+file
+		size = File.size(filepath)
 
 		logger.info "Streaming file: #{file} (#{size} bytes)"
-		logger.info "Seeking to #{params[:start].inspect}.. Not yet implemented" unless not params[:start].nil?		
-		
-		throw :response, [200, {'Content-type' => 'audio/mpeg', 'Content-Length' => size}, mp3]
+		logger.info "Seeking to #{params[:start]}.. Not yet implemented" unless params[:start].nil?
+
+		# Open file
+		file = File.new(filepath, "rb")
+
+		file.seek(start)
+		chuck_size = 150*1024 # 40KB
+
+		stream(:keep_open) do |out|
+
+			while chuck = file.read(chuck_size)
+
+				# Wait until connection il ready
+				while out.closed?
+					logger.info "Closed, sleeping for 3sec"
+					sleep 3
+				end
+
+				out.write chuck
+
+				# Calculate position in total file
+				pos = Float(out.pos)
+				size = Float(size)
+				percent = (pos/size)*100.0
+
+				logger.info "Sent some bytes (#{pos.to_i}/#{size.to_i}), so far #{percent.to_i}%"
+				sleep 3
+			end
+
+			logger.info "All the file was streamed to the device"
+		end
 		
 	end
 
@@ -123,4 +133,3 @@ class WaveRoom < Sinatra::Base
 	end
 
 end
-
