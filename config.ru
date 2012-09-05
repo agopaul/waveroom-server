@@ -1,7 +1,8 @@
 require 'rack/contrib'
-require 'waveroom'
-
-# ruby waveroom.rb -p 6874
+require File.join(File.dirname(__FILE__), 'waveroom')
 
 use Rack::Evil
+
 run WaveRoom
+
+# Run with: ruby waveroom.rb -p 6874
