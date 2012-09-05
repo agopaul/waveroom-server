@@ -1,8 +1,9 @@
 require 'rubygems'
 require 'sinatra'
 require 'json'
+require 'yaml'
 
-FOLDERS = ["/data/Music", "/data/rtorrent/downloading/whatcd/"]
+@folders = ["/data/Music", "/data/rtorrent/downloading/whatcd/"]
 
 class Mp3Stream
 	
@@ -30,22 +31,31 @@ class WaveRoom < Sinatra::Base
 
 	configure do
 		mime_type :json, 'application/json'
+		set :logging, true
 	end
 
 	error do
 		str = "error: #{request.env['sinatra.error'].to_s}"
-		File.open("log/waveroom_error.log", "a+") do |f|
-			f.write "[#{Time.now.to_s}] #{str}\n"
-		end
+		
+		logger.error error
 		str
 	end
 
+	before do
+		y = YAML.load_file("waveroom.yml")
+		@folders = y["folders"]
+	end
+
 	get	'/folders' do
+
+		logger.info "Request folder list"
+		logger.info "Loaded folders: #{@folders.inspect}"
+
 		content_type :json
 
 		resp = []
 		c = 0
-		FOLDERS.each do |f|
+		@folders.each do |f|
 			resp.push({
 				'type' => 'folder',
 				'name' => f,
@@ -60,18 +70,22 @@ class WaveRoom < Sinatra::Base
 	get	%r{/contents/([\d]+)(/.*)?} do |id, sec|
 		content_type :json
 
-		dir = FOLDERS[id.to_i]
+		dir = @folders[id.to_i]
 		dir += sec unless sec.nil?
+
+		logger.info "Loading file list of folder #{dir}"
 
 		resp = []
 
 		Dir.foreach(dir) do |file|
+			# If is a mp3 file
 			if File.file?(dir+"/"+file) and file =~ /\.mp3$/
 				resp.push({
 					'type' => 'file',
 					'name' => file
 				})
 			else
+				#or if is a directory
 				if File.directory?(dir+"/"+file) and not file =~ /^\./
 					resp.push({
 						'type' => 'folder',
@@ -85,17 +99,24 @@ class WaveRoom < Sinatra::Base
 	end
 
 	get	%r{/file/([\d]+)/(.+)} do |id, file|
-		# content_type :mp3
 
 		start = 0 # unless not params[:start].nil?
 
-		mp3 = Mp3Stream.new(FOLDERS[id.to_i]+"/"+file, start.to_i)
-		throw :response, [200, {'Content-type' => 'audio/mpeg', 'Content-Length' => mp3.length.to_s}, mp3]
+		mp3 = Mp3Stream.new(@folders[id.to_i]+"/"+file, start.to_i)
+		size = mp3.length.to_s
+
+		logger.info "Streaming file: #{file} (#{size} bytes)"
+		logger.info "Seeking to #{params[:start].inspect}.. Not yet implemented" unless not params[:start].nil?		
+		
+		throw :response, [200, {'Content-type' => 'audio/mpeg', 'Content-Length' => size}, mp3]
 		
 	end
 
 	# todo!
 	get '/random' do
+
+		logger.info "Picking random file..."
+
 		[{
 			'path' => file
 		}].to_json

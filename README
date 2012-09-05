@@ -6,6 +6,13 @@ Built to stream my music library to the Waveroom Blackberry Application (http://
 
 requires Sinatra/Ruby. thin is my webserver of choice, not yet tested with mongrel or unicorn
 
+INSTALLATION:
+
+bundle install
+cp waveroom-example.yml waveroom.yml
+[edit waveroom.yml with your music paths]
+thin start -C config.yml
+
 TODO:
 	- track seeking
 	- shuffle functionality
